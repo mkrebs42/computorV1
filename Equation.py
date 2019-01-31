@@ -30,6 +30,8 @@ class Equation():
         self.__a = self.__getDeg(2)
         self.__c = self.__getDeg(0)
 
+        self.__getFinalDeg()
+
         self.degree = -1
 
 
@@ -74,12 +76,27 @@ class Equation():
             self.__rest = re.sub(Xpattern[:-1], 'deg'+str(deg), self.__rest)
         Xpattern = r"\+*-*X\^"+str(deg)+' '
         for expr in re.finditer(Xpattern,self.__rest):
-            print(expr.group(0))
+            print("EXPR GROUP",expr.group(0))
             nb += ["+ 1 * X^"+str(deg)]
             self.__rest = re.sub(Xpattern[:-1], 'deg'+str(deg), self.__rest)
         print(self.__rest)
         return nb
 
+    def __getFinalDeg(self):
+        """Methode pour recuperer les coeff ecrit de maniere naturelle"""
+        Xpattern = r"[-+]\ [0-9]+\ *"
+        for expr in re.finditer(Xpattern,self.__rest):
+            print("EXPR GROUP",expr.group(0))
+            self.__c += [expr.group(0)+"* X^0"]
+            self.__rest = re.sub(Xpattern[:-1], 'deg0', self.__rest)
+        Xpattern = r"[-+]\ [0-9]+\ X\ *"
+        for expr in re.finditer(Xpattern,self.__rest):
+            print("EXPR GROUP",expr.group(0))
+            self.__b += [exp.group(0)[:-1]+"^1"]
+            self.__rest = re.sub(Xpattern[:-1], 'deg1', self.__rest)
+        print("FINAL REST",self.__rest)
+        print("deg1", self.__b)
+        print("deg0", self.__c)
 
     def checkDegree(self):
         """Methode pour verifier qu'il s'agit d'une equation de degre 2 ou inf."""
@@ -146,7 +163,11 @@ class Equation():
 
     def __solve2(self):
         """Methode pour resoudre le polynome de degre 2"""
-        delta = (self.__b)^2 - 4*(self.__a*self.__c)
+        print("B=",self.__b)
+        print("A=", self.__a)
+        print("C=",self.__c)
+        delta = (self.__b)**2 - 4*(self.__a*self.__c)
+        print("DELTA=", delta)
         if delta < 0:
             print("The equation has no solution")
         elif delta > 0:
