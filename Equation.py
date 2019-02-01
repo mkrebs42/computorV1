@@ -1,26 +1,25 @@
 import re
-from Tools import sqrt, cleanString, replaceSigns, posPuissance
-#recoder max aussi au cas ou
-
+from Tools import *
 
 class Equation():
+
 
     def __init__(self, string):
         """Constructeur de la classe equation"""
         self.eq = string.strip()+ ' '
-        self.ok = False if 'deg' in string else True
+        self.ok = self.__checkString()
 
         self.__left = self.__getLeft()
         self.__right = self.__getRight()
 
-        self.reduced = self.__putEverythingLeft()
+        self.reduced = cleanString(self.__putEverythingLeft())
 
         self.__rest = self.reduced
 
-        self.b = []
-        self.a = []
-        self.c = []
-        self.__nb = {} #contient tous les coefficients
+        self.b = 0
+        self.a = 0
+        self.c = 0
+        self.__nb = {"0":[], "1":[], "2":[]} #contient tous les coefficients
 
         self.__getCoeffs()
         self.__getFinalCoeffs()
@@ -30,6 +29,21 @@ class Equation():
 
         self.degree = -1
         self.__checkDegree()
+
+
+    def __checkString(self):
+        """Methode pour verifier qu'il n'y a pas de 'deg' dans la string et pas de point suivi d'autre chaoseose qu'un nombre"""
+        if 'deg' in self.eq:
+            return False
+
+        if '.' in self.eq:
+            idx = self.eq.index('.')
+            if idx == len(self.eq) - 1:
+                return False
+            if self.eq[idx+1] not in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+                return False
+
+        return True
 
 
     def __getLeft(self):
@@ -43,6 +57,8 @@ class Equation():
     def __getRight(self):
         """Methode pour recuperer la partie droite de l equation"""
         res = self.eq[self.eq.index('=')+1:].strip()
+        if res == "0":
+            return ""
         if res[0] != '-' and res[0] != '+':
             res = '+ ' + res
         return res
@@ -54,60 +70,69 @@ class Equation():
 
     def __getCoeffs(self):
         """Methode permettant de recuperer les coefficients d'un degre donne"""
-        Xpattern = r"[+-]\ [0-9]+\.*[0-9]*\ \*\ X\^[0-9]+\ "
-        nb = {}
+        Xpattern = r"[+-][0-9]+[./]*[0-9]*\*X\^[0-9]+"
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
-            degPattern = r"\^[0-9]+\ $"
-            deg = re.search(degPattern, value).group(0)[1:-1]
-            if deg not in list(nb.keys()):
-                nb.update( {deg : [value[:-1]]} )
+            degPattern = r"\^[0-9]+$"
+            nbPattern = r"^[+-][0-9]+[./]*[0-9]*"
+            nb = re.search(nbPattern, value).group(0)
+            deg = re.search(degPattern, value).group(0)[1:]
+            if deg not in list(self.__nb.keys()):
+                self.__nb.update( {deg : [nb]} )
             else:
-                nb[deg] += [value]
-            self.__rest = self.__rest.replace(value[:-1], "deg"+deg)
+                self.__nb[deg] += [nb]
+            self.__rest = self.__rest.replace(value, "deg"+deg)
 
-        Xpattern = r"[-+]\ X\^[0-9]+\ "
+        Xpattern = r"[-+]X\^[0-9]+"
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
-            degPattern = r"\^[0-9]+\ )$"
-            deg = re.search(degPattern, value).group(0)[1:-1]
-            if deg not in list(nb.keys()):
-                nb.update( {deg : [value[:-1]]} )
+            degPattern = r"\^[0-9]+$"
+            nb = value[0] + "1"
+            deg = re.search(degPattern, value).group(0)[1:]
+            if deg not in list(self.__nb.keys()):
+                self.__nb.update( {deg : [nb]} )
             else:
-                nb[deg] += [value]
-            nb += [value[0]+" 1 * X^"+deg]
-            self.__rest = self.__rest.replace(value[:-1], 'deg'+deg)
-
-        if "0" in list(nb.keys()):
-            self.c = nb["0"]
-        if "1" in list(nb.keys()):
-            self.b = nb["1"]
-        if "2" in list(nb.keys()):
-            self.a = nb["2"]
-        self.__nb = nb
+                self.__nb[deg] += [nb]
+            self.__rest = self.__rest.replace(value, 'deg'+deg)
 
 
     def __getFinalCoeffs(self):
         """Methode pour recuperer les coeff ecrit de maniere naturelle"""
-        Xpattern = r"[+-]\ [0-9]+\.*[0-9]*\ \*\ X"+' '
+        Xpattern = r"[+-][0-9]+[./]*[0-9]*\*X"
         for expr in re.finditer(Xpattern,self.__rest):
-            self.__nb["1"] += [expr.group(0)[:-1]+"^1"]
-            self.__rest = re.sub(Xpattern[:-1], 'deg1', self.__rest)
+            value = expr.group(0)
+            nbPattern = r"^[+-][0-9]+[./]*[0-9]*"
+            nb = re.search(nbPattern, value).group(0)
+            self.__nb["1"] += [nb]
+            self.__rest = self.__rest.replace(value, 'deg1')
 
-        Xpattern = r"[-+]\ X"+" "
+        Xpattern = r"[-+]X"
         for expr in re.finditer(Xpattern,self.__rest):
-            self.__nb["1s"] += [expr.group(0)[0]+" 1 * X^1"]
-            self.__rest = re.sub(Xpattern[:-1], 'deg1', self.__rest)
+            value = expr.group(0)
+            nb = value[0] + " 1"
+            self.__nb["1"] += [nb]
+            self.__rest = self.__rest.replace(value, 'deg1')
 
-        Xpattern = r"[+-]\ [0-9]+\.*[0-9]*"+" "
+        Xpattern = r"[+-][0-9]+[./]*[0-9]*"
         for expr in re.finditer(Xpattern,self.__rest):
-            self.__nb["0"] += [expr.group(0)+"* X^0"]
-            self.__rest = re.sub(Xpattern[:-1], 'deg0', self.__rest)
+            value = expr.group(0)
+            nbPattern = r"^[+-]*[0-9]+[./]*[0-9]*"
+            nb = re.search(nbPattern, value).group(0)
+            self.__nb["0"] += [nb]
+            self.__rest = self.__rest.replace(value, 'deg0')
+
+
+    def __allNullCoeff(self):
+        """Methode qui verifie si l equation est de forme "0=0" """
+        for key, value in self.__nb.items():
+            if self.__sumCoeffs(self.__nb[key], str(key)) != 0 :
+                return False
+        return True
 
 
     def __getReduced(self):
-        """Methode de reduction de  equation"""
-        if len(list(self.__nb.keys())) == 0 :
+        """Methode de reduction d equation"""
+        if self.__allNullCoeff() == True :
             self.reduced = "0 = 0"
             return
         self.reduced = ""
@@ -140,7 +165,7 @@ class Equation():
         for expr in re.finditer(pattern, self.__rest):
             self.__rest = re.sub(pattern, '', self.__rest)
         if self.__rest != "=0":
-            self.ok = False
+            raise ValueError("Your equation is not well-typed")
 
 
     def __checkDegree(self):
@@ -154,7 +179,13 @@ class Equation():
             for key, value in self.__nb.items():
                 newDict[int(key)] = value
             self.__nb = newDict
-            self.degree = max(list(self.__nb.keys()))
+
+            maximum = 0
+            listDeg = list(self.__nb.keys())
+            for deg in listDeg:
+                if deg > maximum and self.__sumCoeffs(self.__nb[deg], str(deg)) != 0:
+                    maximum = deg
+            self.degree = maximum
 
 
     def getDegree(self):
@@ -168,13 +199,6 @@ class Equation():
             return True
 
 
-    def checkClear(self):
-        """Methode qui verifie que la string passee en caractere est bien une equation"""
-        print("RESTE A LA FIN", self.__rest)
-        if len(self.__rest) > 0:
-            print("The string is not a go")
-
-
     def __sumCoeffs(self, att, deg):
         """Methode qui transforme les attributs degres pour leur donner un seul coefficient"""
         res = 0
@@ -185,14 +209,11 @@ class Equation():
         for coeff in att:
             coeff = cleanString(coeff)
             coeff = re.sub(pattern, '', coeff)
-            coeffNb += [float(coeff[1:])]
+            coeffNb += [strToFloat(coeff)]
             coeffSign += [coeff[0]]
         for i in range(len(coeffNb)):
-            if coeffSign[i] == '-':
-                res -= coeffNb[i]
-            else:
-                res += coeffNb[i]
-        if res.is_integer() == True:
+            res += coeffNb[i]
+        if float(res).is_integer() == True:
             return int(res)
         return res
 
@@ -208,20 +229,21 @@ class Equation():
 
     def __solve1(self):
         """Methode pour resoudre le polynome de degre 1"""
-        X = (self.c / self.__b) * (-1)
+        X = (self.c / self.b) * (-1)
         print("The solution is:")
-        print(X)
+        print(fraction(X))
         return
 
 
     def __solve2(self):
         """Methode pour resoudre le polynome de degre 2"""
         delta = posPuissance((self.b),2) - 4*(self.a *self.c)
+        print(delta)
         if delta < 0:
             print("Determinant is stricly negative. The two complex solutions are:")
-            b = str(self.b * (-1))
-            twoA = str(self.a * 2)
-            complexe = str(sqrt(delta * (-1)))
+            b = fraction(self.b * (-1))
+            twoA = fraction(self.a * 2)
+            complexe = fraction(sqrt(delta * (-1)))
             if (b == 0):
                 z1 = "(i*"+complexe+")/"+twoA
                 z2 = "(-i*"+complexe+")/"+twoA
@@ -234,23 +256,25 @@ class Equation():
             print("Determinant is stricly positive, the two solutions are:")
             X1 = (self.b*(-1) - sqrt(delta))/(2*self.a)
             X2 = (self.b*(-1) + sqrt(delta))/(2*self.a)
-            print(X1)
-            print(X2)
+            print(fraction(X1))
+            print(fraction(X2))
         else:
             X = ((self.b)*(-1)) / (2*self.a)
             print ("The solution is:")
-            print(X)
+            print(fraction(X))
         return
 
 
     def solve(self):
         """Methode de resolution de l equation"""
-        self.a = self.__sumCoeffs(self.a , "2")
-        self.b  = self.__sumCoeffs(self.b, "1")
-        self.c = self.__sumCoeffs(self.c, "0")
+        self.a = self.__sumCoeffs(self.__nb[2] ,"2")
+        self.b = self.__sumCoeffs(self.__nb[1], "1")
+        self.c = self.__sumCoeffs(self.__nb[0], "0")
+        print('Considering the equation is formated as "a * X^2 + b * X + c = 0",\na =', self.a, ", b =", self.b, "and c =", self.c)
         if self.degree == 0:
             self.__solve0()
         elif self.degree == 1:
             self.__solve1()
         else:
+            print("Polynomial degree is 2, so we calculate the delta : ",end='')
             self.__solve2()
