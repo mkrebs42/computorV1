@@ -29,12 +29,15 @@ def replaceSigns(string):
 def posPuissance(nb, puissance):
     """Fonction qui renvoie un nombre 'nb' a la puissance 'puissance' pour les puissances positives et entieres"""
     try:
-        res = 1
-        for i in range(puissance):
-            res *= nb
-        return res
+        if float(puissance).is_integer() == True:
+            res = 1
+            for i in range(puissance):
+                res *= nb
+            return res
+        else:
+            raise ValueEroor("Second argument must be a positive integer.")
     except ValueError:
-        raise ValueError("First argument must be a positive number.")
+        raise ValueError("First argument must be a number and second argument a positve integer.")
 
 
 def sqrt(nb):

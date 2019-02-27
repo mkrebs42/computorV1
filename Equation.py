@@ -7,7 +7,7 @@ class Equation():
     def __init__(self, string):
         """Constructeur de la classe equation"""
         self.eq = string.strip()+ ' '
-        self.ok = self.__checkString()
+        self.__checkString()
 
         self.__left = self.__getLeft()
         self.__right = self.__getRight()
@@ -34,16 +34,19 @@ class Equation():
     def __checkString(self):
         """Methode pour verifier qu'il n'y a pas de 'deg' dans la string et pas de point suivi d'autre chaoseose qu'un nombre"""
         if 'deg' in self.eq:
-            return False
+            raise ValueError("Your equation should not contain letters.")
 
         if '.' in self.eq:
             idx = self.eq.index('.')
-            if idx == len(self.eq) - 1:
-                return False
-            if self.eq[idx+1] not in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
-                return False
+            if idx == len(self.eq) - 1 or self.eq[idx+1] not in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+                raise ValueError("You didn't use '.' correctly")
 
-        return True
+        if '=' not in self.eq:
+            raise ValueError("This is not an equation because you didn't put a '=' sign")
+
+        idx = cleanString(self.eq).index('=')
+        if idx == len(cleanString(self.eq)) -1 :
+            raise ValueError("You have to put something after the '=' sign.")
 
 
     def __getLeft(self):
@@ -70,7 +73,7 @@ class Equation():
 
     def __getCoeffs(self):
         """Methode permettant de recuperer les coefficients d'un degre donne"""
-        Xpattern = r"[+-][0-9]+[./]*[0-9]*\*X\^[0-9]+"
+        Xpattern = r"[+-][0-9]+[./]*[0-9]*\**X\^[0-9]+" #forme 10.2 * X ^ 5
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
             degPattern = r"\^[0-9]+$"
@@ -81,9 +84,9 @@ class Equation():
                 self.__nb.update( {deg : [nb]} )
             else:
                 self.__nb[deg] += [nb]
-            self.__rest = self.__rest.replace(value, "deg"+deg)
+            self.__rest = self.__rest.replace(value, "")
 
-        Xpattern = r"[-+]X\^[0-9]+"
+        Xpattern = r"[-+]X\^[0-9]+" #forme  X ^ 3
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
             degPattern = r"\^[0-9]+$"
@@ -93,33 +96,33 @@ class Equation():
                 self.__nb.update( {deg : [nb]} )
             else:
                 self.__nb[deg] += [nb]
-            self.__rest = self.__rest.replace(value, 'deg'+deg)
+            self.__rest = self.__rest.replace(value, "")
 
 
     def __getFinalCoeffs(self):
         """Methode pour recuperer les coeff ecrit de maniere naturelle"""
-        Xpattern = r"[+-][0-9]+[./]*[0-9]*\*X"
+        Xpattern = r"[+-][0-9]+[./]*[0-9]*\**X" #forme  3.5 * X
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
             nbPattern = r"^[+-][0-9]+[./]*[0-9]*"
             nb = re.search(nbPattern, value).group(0)
             self.__nb["1"] += [nb]
-            self.__rest = self.__rest.replace(value, 'deg1')
+            self.__rest = self.__rest.replace(value, "")
 
-        Xpattern = r"[-+]X"
+        Xpattern = r"[-+]X" #forme  X
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
             nb = value[0] + " 1"
             self.__nb["1"] += [nb]
-            self.__rest = self.__rest.replace(value, 'deg1')
+            self.__rest = self.__rest.replace(value, "")
 
-        Xpattern = r"[+-][0-9]+[./]*[0-9]*"
+        Xpattern = r"[+-][0-9]+[./]*[0-9]*" #forme 1/2
         for expr in re.finditer(Xpattern,self.__rest):
             value = expr.group(0)
             nbPattern = r"^[+-]*[0-9]+[./]*[0-9]*"
             nb = re.search(nbPattern, value).group(0)
             self.__nb["0"] += [nb]
-            self.__rest = self.__rest.replace(value, 'deg0')
+            self.__rest = self.__rest.replace(value, "")
 
 
     def __allNullCoeff(self):
@@ -153,17 +156,12 @@ class Equation():
                 else:
                     self.reduced += '- '+ str(valueCoeff)[1:] + " * X^" + deg + " "
         self.reduced += "= 0"
-        self.reduced = self.reduced[2:]
-
+        if self.reduced[0] == '+':
+            self.reduced = self.reduced[2:]
 
     def __checkOk(self):
         """Methode pour verifier qu'il n'y a pas d'erreur de syntaxe"""
-        if self.ok == False:
-            return
         self.__rest = cleanString(self.__rest)
-        pattern = r"deg[0-9]+"
-        for expr in re.finditer(pattern, self.__rest):
-            self.__rest = re.sub(pattern, '', self.__rest)
         if self.__rest != "=0":
             raise ValueError("Your equation is not well-typed")
 
